@@ -156,7 +156,8 @@
           "leasetrigger": "/usr/sbin/odhcpd-update",
           "loglevel": "4"
         }
-      }
+      },
+      "host": {}
     },
     "firewall": {
       "defaults": {
@@ -355,7 +356,8 @@
           "leasetrigger": "/usr/sbin/odhcpd-update",
           "loglevel": "4"
         }
-      }
+      },
+      "host": {}
     },
     "firewall": {
       "defaults": {
@@ -402,6 +404,6 @@
     "username": "root",
     "password": ""
   },
-  "bootTime": 1781448375154,
-  "resetCount": 2
+  "bootTime": 1781450707634,
+  "resetCount": 5
 }

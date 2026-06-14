@@ -61,6 +61,11 @@ const API = (function () {
     revert() { return req('POST', '/revert'); },
     changes() { return req('GET', '/changes'); },
 
+    // narzędzia / diagnostyka / logi
+    diag(tool, target, count) { return req('POST', '/diag', { tool, target, count }); },
+    log(type) { return req('GET', '/log/' + (type || 'system')); },
+    reboot() { return req('POST', '/reboot'); },
+
     // system
     reset() { return req('POST', '/reset'); },
     setPassword(password) { return req('POST', '/password', { password }); },

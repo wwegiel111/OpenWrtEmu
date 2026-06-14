@@ -23,9 +23,18 @@ do **egzaminu zawodowego INF.02 / EE.08** — z prostym resetem konfiguracji do 
   kanał, szerokość (HT/VHT), kod kraju, SSID, tryb AP/STA, szyfrowanie
   (otwarte / WPA2-PSK / WPA/WPA2 / WPA3-SAE), klucz, ukrywanie SSID, włącz/wyłącz radio.
 - 🧩 **Sieć → DHCP i DNS** — pula adresów (start, limit, czas dzierżawy), Dnsmasq, domena lokalna.
+- 📌 **Rezerwacje statyczne DHCP (Static Leases)** — przypisanie **stałego IP po adresie MAC**:
+  dodawanie/edycja/usuwanie wpisów, walidacja MAC i IP, przycisk **„⊕ Zarezerwuj"** zamieniający
+  aktywną dzierżawę w rezerwację. Zarezerwowane urządzenie zawsze otrzymuje swój adres
+  i znika z puli dynamicznej (jak w prawdziwym dnsmasq).
 - 🔀 **Sieć → Switch (VLAN)** — tablica VLAN przełącznika `switch0` z portami
   CPU/LAN1-4/WAN w trybach **off / untagged / tagged** (model swconfig MT7621).
-- ⚙️ **System** — nazwa hosta, strefa czasowa; **Administracja** — zmiana hasła root.
+- 🛠️ **Sieć → Diagnostyka** — **ping / traceroute / nslookup** wykonywane „na routerze"
+  (symulacja serwerowa, realistyczne wyjścia; pierwszy hop traceroute = adres routera).
+- 📜 **Status → Routing** — tablica **ARP** (IP ↔ MAC) i trasy IPv4; **Dziennik systemowy**
+  (syslog) oraz **Dziennik jądra** (dmesg) z odświeżaniem.
+- ⚙️ **System** — nazwa hosta, strefa czasowa; **Administracja** — zmiana hasła root;
+  **Uruchom ponownie** — reboot z paskiem postępu (zeruje uptime, zachowuje konfigurację).
 - 💾 **Kopia zapasowa / Reset** — pobranie i przywrócenie konfiguracji (.json) oraz
   **przywrócenie ustawień fabrycznych** jednym kliknięciem (idealne przed nowym zadaniem).
 - 🔁 **Workflow „Zapisz / Zapisz i zastosuj / Cofnij”** z licznikiem **niezapisanych zmian**
@@ -95,10 +104,13 @@ OpenWrtEmu/
 | POST | `/api/logout` | Wylogowanie |
 | GET | `/api/status/overview` | Status systemu |
 | GET | `/api/status/{interfaces,wireless,leases}` | Status szczegółowy |
-| GET/PUT | `/api/config/{network,wireless,dhcp,system,firewall}` | Odczyt / zapis sekcji (stage) |
+| GET/PUT | `/api/config/{network,wireless,dhcp,system,firewall}` | Odczyt / zapis sekcji (stage); rezerwacje DHCP w `dhcp.host` |
 | POST | `/api/apply` | Zastosuj zmiany (running ← staged) |
 | POST | `/api/revert` | Cofnij niezapisane zmiany |
 | GET | `/api/changes` | Lista niezapisanych zmian |
+| POST | `/api/diag` | Diagnostyka: `{tool:ping\|traceroute\|nslookup, target}` |
+| GET | `/api/log/{system,kernel}` | Dziennik systemowy / jądra |
+| POST | `/api/reboot` | Ponowne uruchomienie (zachowuje konfigurację) |
 | POST | `/api/reset` | Reset fabryczny |
 | POST | `/api/password` | Zmiana hasła |
 | GET/POST | `/api/backup` `/api/restore` | Kopia zapasowa / przywracanie |

@@ -510,14 +510,103 @@ const Pages = (function () {
     }));
     root.appendChild(panel('Ustawienia ogólne — DNS i Dnsmasq', null, dnsBody));
 
-    // --- Aktywne dzierżawy ---
+    // --- Rezerwacje statyczne (Static Leases) ---
+    if (!cfg.host) cfg.host = {};
+    const staticHolder = el('div');
+    let hostSeq = 0;
+    const nextKey = () => { let k; do { k = 'host' + (hostSeq++); } while (cfg.host[k]); return k; };
+
+    function renderStatic() {
+      clear(staticHolder);
+      const entries = Object.entries(cfg.host);
+      const rows = entries.map(([key, h]) => {
+        const nameI = textInput(h.name || ''); nameI.style.width = '150px';
+        nameI.addEventListener('input', () => { h.name = nameI.value.trim(); });
+        const macI = textInput(h.mac || '', { placeholder: '00:11:22:33:44:55' }); macI.style.width = '170px';
+        macI.addEventListener('input', () => { h.mac = macI.value.trim(); });
+        const ipI = textInput(h.ip || '', { placeholder: '192.168.1.50' }); ipI.style.width = '150px';
+        ipI.addEventListener('input', () => { h.ip = ipI.value.trim(); });
+        const leaseI = textInput(h.leasetime || '', { cls: 'tiny', placeholder: '12h' });
+        leaseI.addEventListener('input', () => { h.leasetime = leaseI.value.trim(); });
+        const del = el('button', { class: 'btn btn-sm btn-danger', text: 'Usuń' });
+        del.addEventListener('click', () => { delete cfg.host[key]; renderStatic(); });
+        return [nameI, macI, ipI, leaseI, del];
+      });
+      if (rows.length) {
+        staticHolder.appendChild(table(['Nazwa hosta', 'Adres MAC', 'Adres IPv4', 'Czas dzierżawy', ''], rows));
+      } else {
+        staticHolder.appendChild(el('p', { class: 'panel-descr', text: 'Brak rezerwacji. Dodaj wpis, aby przypisać stały adres IP do urządzenia (po jego adresie MAC).' }));
+      }
+      const addBtn = el('button', { class: 'btn btn-sm', text: '+ Dodaj rezerwację', style: 'margin-top:12px' });
+      addBtn.addEventListener('click', () => { cfg.host[nextKey()] = { name: '', mac: '', ip: '', leasetime: '' }; renderStatic(); });
+      staticHolder.appendChild(addBtn);
+    }
+    renderStatic();
+
+    const staticBody = el('div');
+    staticBody.appendChild(el('p', { class: 'panel-descr', html: 'Przypisz <b>stały adres IP</b> do urządzenia na podstawie jego <b>adresu MAC</b>. Zarezerwowane urządzenie zawsze otrzyma ten sam adres z serwera DHCP.' }));
+    staticBody.appendChild(examTip('Rezerwacja adresu = powiązanie MAC ↔ IP. Adres rezerwacji najlepiej ustawić <b>poza pulą dynamiczną</b> (np. 192.168.1.50, gdy pula to 100–249), aby uniknąć konfliktów.'));
+    staticBody.appendChild(staticHolder);
+
+    const validStatic = () => {
+      const ips = new Set(), macs = new Set();
+      for (const h of Object.values(cfg.host)) {
+        if (!validate.mac(h.mac || '')) { toast('Nieprawidłowy adres MAC (format 00:11:22:33:44:55).', 'err'); return false; }
+        if (!validate.ipv4(h.ip || '')) { toast('Nieprawidłowy adres IPv4 rezerwacji.', 'err'); return false; }
+        const mac = (h.mac || '').toLowerCase();
+        if (macs.has(mac)) { toast('Zduplikowany adres MAC: ' + h.mac, 'err'); return false; }
+        if (ips.has(h.ip)) { toast('Zduplikowany adres IP: ' + h.ip, 'err'); return false; }
+        macs.add(mac); ips.add(h.ip);
+      }
+      return true;
+    };
+    const saveStatic = async (apply) => {
+      if (!validStatic()) return;
+      for (const h of Object.values(cfg.host)) { if (!h.name) delete h.name; if (!h.leasetime) delete h.leasetime; }
+      await saveSection('dhcp', cfg, apply);
+      App.navigate('#/admin/network/dhcp');
+    };
+    staticBody.appendChild(cliBox(
+      'uci add dhcp host\n' +
+      'uci set dhcp.@host[-1].name=\'laptop\'\n' +
+      'uci set dhcp.@host[-1].mac=\'00:11:22:33:44:55\'\n' +
+      'uci set dhcp.@host[-1].ip=\'192.168.1.50\'\n' +
+      'uci commit dhcp && /etc/init.d/dnsmasq restart'
+    ));
+    staticBody.appendChild(saveBar({
+      onSaveApply: () => saveStatic(true),
+      onSave: () => saveStatic(false),
+      onReset: () => App.navigate('#/admin/network/dhcp')
+    }));
+    root.appendChild(panel('Rezerwacje statyczne (Static Leases)', 'przypisanie MAC → IP', staticBody));
+
+    // --- Aktywne dzierżawy (z przyciskiem rezerwacji) ---
     const leases = await API.statusLeases();
-    const leaseRows = leases.map((l) => [
-      l.hostname, el('span', { class: 'mono', text: l.ipaddr }),
-      el('span', { class: 'mono', text: l.macaddr }), fmtDuration(l.remaining)
-    ]);
+    const reservedMacs = new Set(Object.values(cfg.host).map((h) => (h.mac || '').toLowerCase()).filter(Boolean));
+    const leaseRows = leases.map((l) => {
+      let action;
+      if (l.static || reservedMacs.has((l.macaddr || '').toLowerCase())) {
+        action = badge('rezerwacja', 'info');
+      } else {
+        const b = el('button', { class: 'btn btn-sm', text: '⊕ Zarezerwuj' });
+        b.addEventListener('click', () => {
+          cfg.host[nextKey()] = { name: l.hostname && l.hostname !== '*' ? l.hostname : '', mac: l.macaddr, ip: l.ipaddr, leasetime: '' };
+          renderStatic();
+          toast('Dodano do rezerwacji. Kliknij „Zapisz i zastosuj” w sekcji „Rezerwacje statyczne”.', 'warn');
+          staticHolder.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        action = b;
+      }
+      return [
+        l.hostname,
+        el('span', { class: 'mono', text: l.ipaddr }),
+        el('span', { class: 'mono', text: l.macaddr }),
+        l.static ? badge('statyczna', 'up') : fmtDuration(l.remaining),
+        action
+      ];
+    });
     root.appendChild(panel('Aktywne dzierżawy DHCP', leases.length + ' urządzeń',
-      leaseRows.length ? table(['Nazwa hosta', 'Adres IPv4', 'Adres MAC', 'Pozostały czas'], leaseRows)
+      leaseRows.length ? table(['Nazwa hosta', 'Adres IPv4', 'Adres MAC', 'Czas / typ', ''], leaseRows)
                        : el('p', { class: 'panel-descr', text: 'Brak aktywnych dzierżaw.' })));
 
     return root;
@@ -638,6 +727,147 @@ const Pages = (function () {
     }));
 
     root.appendChild(panel('VLAN — switch0', 'TP-Link Archer C6 · MT7621', body));
+    return root;
+  }
+
+  /* =======================================================
+     NETWORK / DIAGNOSTICS (ping / traceroute / nslookup)
+     ======================================================= */
+  async function networkDiagnostics() {
+    const root = el('div');
+    root.appendChild(el('h2', { text: 'Diagnostyka sieci' }));
+    root.appendChild(el('div', { class: 'cbi-map-descr', text: 'Narzędzia do sprawdzania łączności i działania DNS — uruchamiane na routerze, dokładnie jak w LuCI.' }));
+    root.appendChild(examTip('Test łączności: <b>ping 8.8.8.8</b> (działa Internet po IP?), <b>ping openwrt.org</b> (działa DNS?), <b>traceroute</b> pokaże trasę, <b>nslookup</b> sprawdzi rozwiązywanie nazw.'));
+
+    const outBox = el('div', { class: 'cli-box', text: '# tutaj pojawi się wynik polecenia' });
+    outBox.style.minHeight = '200px';
+
+    function diagRow(tool, defTarget) {
+      const target = textInput(defTarget); target.style.width = '280px';
+      const btn = el('button', { class: 'btn btn-primary', text: tool });
+      const run = async () => {
+        outBox.textContent = '$ ' + tool + ' ' + target.value + '\n... uruchamianie ...';
+        btn.disabled = true;
+        try {
+          const r = await API.diag(tool, target.value);
+          outBox.textContent = '$ ' + tool + ' ' + target.value + '\n\n' + r.output;
+        } catch (e) { outBox.textContent = 'Błąd: ' + e.message; }
+        btn.disabled = false;
+      };
+      btn.addEventListener('click', run);
+      target.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+      return valueRow(tool.charAt(0).toUpperCase() + tool.slice(1), null,
+        el('span', { class: 'inline-group' }, [target, btn]));
+    }
+
+    const body = el('div');
+    body.appendChild(diagRow('ping', '8.8.8.8'));
+    body.appendChild(diagRow('traceroute', 'openwrt.org'));
+    body.appendChild(diagRow('nslookup', 'openwrt.org'));
+    root.appendChild(panel('Narzędzia sieciowe', null, body));
+    root.appendChild(panel('Wynik', null, outBox));
+    return root;
+  }
+
+  /* =======================================================
+     STATUS / ROUTING (ARP + trasy IPv4)
+     ======================================================= */
+  async function statusRouting() {
+    const root = el('div');
+    root.appendChild(el('h2', { text: 'Routing' }));
+    root.appendChild(el('div', { class: 'cbi-map-descr', text: 'Tablica ARP (powiązania IP ↔ MAC) oraz aktywne trasy IPv4 routera.' }));
+
+    const leases = await API.statusLeases();
+    const ifs = await API.statusInterfaces();
+    const lan = ifs.find((i) => i.name === 'lan') || {};
+    const wan = ifs.find((i) => i.name === 'wan') || {};
+
+    // ARP — z aktywnych dzierżaw + sam router
+    const arpRows = [];
+    arpRows.push([el('span', { class: 'mono', text: (lan.ipv4 || '192.168.1.1/24').split('/')[0] }),
+                  el('span', { class: 'mono', text: lan.mac || '—' }), 'br-lan', badge('router', 'info')]);
+    leases.forEach((l) => arpRows.push([
+      el('span', { class: 'mono', text: l.ipaddr }),
+      el('span', { class: 'mono', text: l.macaddr }),
+      'br-lan',
+      l.static ? badge('rezerwacja', 'up') : badge('aktywny', 'info')
+    ]));
+    root.appendChild(panel('Tablica ARP', leases.length + 1 + ' wpisów',
+      table(['Adres IPv4', 'Adres MAC', 'Interfejs', 'Typ'], arpRows)));
+
+    // Trasy IPv4
+    const lanNet = (lan.ipv4 || '192.168.1.1/24').replace(/\.\d+\//, '.0/');
+    const routeRows = [
+      [el('span', { class: 'mono', text: '0.0.0.0/0' }), el('span', { class: 'mono', text: wan.gateway || '—' }), 'wan', el('span', { class: 'mono', text: 'domyślna brama' })],
+      [el('span', { class: 'mono', text: lanNet }), el('span', { class: 'mono', text: '0.0.0.0' }), 'br-lan', 'sieć lokalna'],
+      [el('span', { class: 'mono', text: '203.0.113.0/24' }), el('span', { class: 'mono', text: '0.0.0.0' }), 'wan', 'sieć operatora']
+    ];
+    root.appendChild(panel('Trasy IPv4', null,
+      table(['Sieć docelowa', 'Brama', 'Interfejs', 'Opis'], routeRows)));
+    return root;
+  }
+
+  /* =======================================================
+     STATUS / LOGI (syslog / dmesg)
+     ======================================================= */
+  async function logPage(type, title, descr) {
+    const root = el('div');
+    root.appendChild(el('h2', { text: title }));
+    root.appendChild(el('div', { class: 'cbi-map-descr', text: descr }));
+    const out = el('div', { class: 'cli-box' });
+    out.style.maxHeight = '540px'; out.style.overflow = 'auto';
+    const r = await API.log(type);
+    out.textContent = r.output;
+    const refresh = el('button', { class: 'btn btn-sm', text: '↻ Odśwież' });
+    refresh.addEventListener('click', async () => {
+      const rr = await API.log(type); out.textContent = rr.output; toast('Dziennik odświeżony.', 'ok');
+    });
+    const bar = el('div', { class: 'btn-row' }); bar.appendChild(refresh);
+    root.appendChild(panel(title, null, [out, bar]));
+    return root;
+  }
+  function statusSyslog() { return logPage('system', 'Dziennik systemowy', 'Komunikaty systemowe (syslog): usługi procd, netifd, dnsmasq (DHCP), hostapd (Wi-Fi), dropbear (SSH).'); }
+  function statusKernelLog() { return logPage('kernel', 'Dziennik jądra', 'Komunikaty jądra Linux (dmesg): wykrywanie sprzętu MT7621, interfejsy sieciowe, moduły radiowe.'); }
+
+  /* =======================================================
+     SYSTEM / REBOOT
+     ======================================================= */
+  async function systemReboot() {
+    const root = el('div');
+    root.appendChild(el('h2', { text: 'Uruchom ponownie' }));
+    root.appendChild(el('div', { class: 'cbi-map-descr', text: 'Ponowne uruchomienie routera. Zastosowana konfiguracja zostaje zachowana, a licznik czasu pracy (uptime) zostanie wyzerowany.' }));
+
+    const body = el('div');
+    body.appendChild(el('div', { class: 'note warn', html: 'Po ponownym uruchomieniu nastąpi <b>wylogowanie</b>. Niezapisane zmiany zostaną odrzucone (wczytana zostanie ostatnio <b>zastosowana</b> konfiguracja). To <b>nie</b> jest reset fabryczny.' }));
+
+    function rebootOverlay() {
+      const overlay = document.getElementById('modal-overlay');
+      const m = document.getElementById('modal');
+      m.innerHTML = '';
+      m.appendChild(el('div', { class: 'modal-head', text: 'Ponowne uruchamianie...' }));
+      const b = el('div', { class: 'modal-body' });
+      b.appendChild(el('p', { text: 'Urządzenie jest uruchamiane ponownie. Trwa oczekiwanie na ponowne połączenie...' }));
+      const g = el('div', { class: 'gauge' }); const gs = el('span', { style: 'width:0%' });
+      g.appendChild(gs); g.appendChild(el('div', { class: 'gauge-text', text: '' })); b.appendChild(g);
+      m.appendChild(b);
+      overlay.classList.remove('hidden');
+      let pct = 0;
+      const iv = setInterval(() => {
+        pct += 14; gs.style.width = Math.min(100, pct) + '%';
+        if (pct >= 100) { clearInterval(iv); sessionStorage.removeItem('sysauth'); location.reload(); }
+      }, 430);
+    }
+
+    const btn = el('button', { class: 'btn btn-danger', text: '⟲ Uruchom ponownie' });
+    btn.addEventListener('click', () => {
+      confirmDialog('Ponowne uruchomienie', 'Czy na pewno uruchomić urządzenie ponownie?', async () => {
+        try { await API.reboot(); } catch (_) {}
+        rebootOverlay();
+      }, 'Tak, uruchom ponownie', 'btn-danger');
+    });
+    const bar = el('div', { class: 'btn-row' }); bar.appendChild(btn);
+    body.appendChild(bar);
+    root.appendChild(panel('Ponowne uruchomienie', 'reboot', body));
     return root;
   }
 
@@ -817,7 +1047,9 @@ const Pages = (function () {
       ['Połączenie z Internetem (WAN)', 'Sieć → Interfejsy → WAN → Edytuj → Protokół: Klient DHCP / Statyczny / PPPoE.'],
       ['Sieć Wi-Fi (SSID + hasło)', 'Sieć → Wi-Fi → Edytuj → SSID, Szyfrowanie WPA2-PSK, Klucz (min. 8 znaków).'],
       ['Serwer DHCP / zakres adresów', 'Sieć → DHCP i DNS → Start, Limit, Czas dzierżawy.'],
+      ['Rezerwacja adresu DHCP (MAC→IP)', 'Sieć → DHCP i DNS → Rezerwacje statyczne → Dodaj (nazwa, MAC, IP).'],
       ['VLAN na przełączniku', 'Sieć → Switch (VLAN) → dodaj VLAN, ustaw porty untagged/tagged.'],
+      ['Diagnostyka (ping/traceroute)', 'Sieć → Diagnostyka → wpisz cel i kliknij narzędzie.'],
       ['Zmiana hasła administratora', 'System → Administracja → Nowe hasło.'],
       ['Reset przed nowym zadaniem', 'System → Kopia zapasowa / Reset → Przywróć ustawienia fabryczne.']
     ];
@@ -845,6 +1077,7 @@ const Pages = (function () {
 
   return {
     statusOverview, networkInterfaces, networkWireless, networkDhcp, networkVlan,
+    networkDiagnostics, statusRouting, statusSyslog, statusKernelLog, systemReboot,
     systemSystem, systemAdmin, systemFlash, uciChanges, help
   };
 })();

@@ -6,18 +6,23 @@ const App = (function () {
   // Struktura menu (odwzorowanie LuCI)
   const MENU = [
     { id: 'status', label: 'Status', sub: [
-      { label: 'Przegląd', route: '#/admin/status/overview' }
+      { label: 'Przegląd', route: '#/admin/status/overview' },
+      { label: 'Routing', route: '#/admin/status/routes' },
+      { label: 'Dziennik systemowy', route: '#/admin/status/syslog' },
+      { label: 'Dziennik jądra', route: '#/admin/status/dmesg' }
     ]},
     { id: 'system', label: 'System', sub: [
       { label: 'System', route: '#/admin/system/system' },
       { label: 'Administracja', route: '#/admin/system/admin' },
+      { label: 'Uruchom ponownie', route: '#/admin/system/reboot' },
       { label: 'Kopia zapasowa / Reset', route: '#/admin/system/flash' }
     ]},
     { id: 'network', label: 'Sieć', sub: [
       { label: 'Interfejsy', route: '#/admin/network/network' },
       { label: 'Sieć bezprzewodowa', route: '#/admin/network/wireless' },
       { label: 'DHCP i DNS', route: '#/admin/network/dhcp' },
-      { label: 'Switch (VLAN)', route: '#/admin/network/vlan' }
+      { label: 'Switch (VLAN)', route: '#/admin/network/vlan' },
+      { label: 'Diagnostyka', route: '#/admin/network/diagnostics' }
     ]},
     { id: 'help', label: 'Pomoc', sub: [
       { label: 'Przygotowanie do egzaminu', route: '#/admin/help' }
@@ -26,12 +31,17 @@ const App = (function () {
 
   const ROUTES = {
     '#/admin/status/overview': { section: 'status', render: Pages.statusOverview },
+    '#/admin/status/routes': { section: 'status', render: Pages.statusRouting },
+    '#/admin/status/syslog': { section: 'status', render: Pages.statusSyslog },
+    '#/admin/status/dmesg': { section: 'status', render: Pages.statusKernelLog },
     '#/admin/network/network': { section: 'network', render: Pages.networkInterfaces },
     '#/admin/network/wireless': { section: 'network', render: Pages.networkWireless },
     '#/admin/network/dhcp': { section: 'network', render: Pages.networkDhcp },
     '#/admin/network/vlan': { section: 'network', render: Pages.networkVlan },
+    '#/admin/network/diagnostics': { section: 'network', render: Pages.networkDiagnostics },
     '#/admin/system/system': { section: 'system', render: Pages.systemSystem },
     '#/admin/system/admin': { section: 'system', render: Pages.systemAdmin },
+    '#/admin/system/reboot': { section: 'system', render: Pages.systemReboot },
     '#/admin/system/flash': { section: 'system', render: Pages.systemFlash },
     '#/admin/uci/changes': { section: 'status', render: Pages.uciChanges },
     '#/admin/help': { section: 'help', render: Pages.help }
@@ -63,9 +73,8 @@ const App = (function () {
       const a = el('a', { href: m.sub[0].route, text: m.label, 'data-section': m.id });
       menu.appendChild(a);
     });
-    const logout = el('a', { href: '#', class: 'logout', text: 'Wyloguj' });
-    logout.addEventListener('click', async (e) => { e.preventDefault(); await API.logout(); showLogin(); });
-    menu.appendChild(logout);
+    const logout = document.getElementById('logout-link');
+    logout.onclick = async (e) => { e.preventDefault(); await API.logout(); showLogin(); };
   }
 
   function buildSubMenu(sectionId, activeRoute) {
@@ -73,7 +82,6 @@ const App = (function () {
     clear(sub);
     const m = MENU.find((x) => x.id === sectionId);
     if (!m) return;
-    sub.appendChild(el('div', { class: 'submenu-group', text: m.label }));
     m.sub.forEach((s) => {
       const a = el('a', { href: s.route, text: s.label });
       if (s.route === activeRoute) a.classList.add('active');

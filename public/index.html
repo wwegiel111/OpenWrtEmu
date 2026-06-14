@@ -40,30 +40,34 @@
 
   <!-- Aplikacja -->
   <div id="app-view" class="app-view hidden">
-    <header class="header">
-      <div class="header-inner">
-        <a class="brand" href="#/admin/status/overview">
-          <img src="img/openwrt-logo.svg" alt="OpenWrt" height="28">
-        </a>
-        <div class="brand-meta">
-          <span id="hdr-hostname">OpenWrt</span>
-          <span id="hdr-model" class="hdr-model">TP-Link Archer C6</span>
+    <header id="header">
+      <div class="navbar">
+        <div class="navbar-inner">
+          <a class="brand" href="#/admin/status/overview">
+            <img src="img/openwrt-logo.svg" alt="OpenWrt" height="26">
+          </a>
+          <nav class="mainmenu" id="mainmenu"></nav>
+          <div class="navbar-right">
+            <span class="hostinfo">
+              <span id="hdr-hostname">OpenWrt</span>
+              <span id="hdr-model" class="hdr-model">TP-Link Archer C6</span>
+            </span>
+            <a id="changes-indicator" class="changes-indicator hidden" href="#/admin/uci/changes" title="Niezapisane zmiany">Niezapisane: <span id="changes-count">0</span></a>
+            <button id="theme-toggle" class="icon-btn" title="Przełącz motyw">◐</button>
+            <a id="logout-link" class="logout-link" href="#">Wyloguj</a>
+          </div>
         </div>
-        <div class="header-spacer"></div>
-        <div id="changes-indicator" class="changes-indicator hidden" title="Niezapisane zmiany">
-          <a href="#/admin/uci/changes">Niezapisane zmiany: <span id="changes-count">0</span></a>
-        </div>
-        <button id="theme-toggle" class="icon-btn" title="Przełącz motyw">◐</button>
       </div>
-      <nav class="mainmenu" id="mainmenu"></nav>
+      <div class="submenu-bar">
+        <div class="submenu-inner">
+          <nav class="submenu" id="submenu"></nav>
+        </div>
+      </div>
     </header>
 
-    <div class="layout">
-      <aside class="submenu" id="submenu"></aside>
-      <main class="content" id="content">
-        <!-- renderowane dynamicznie -->
-      </main>
-    </div>
+    <main class="content" id="content">
+      <!-- renderowane dynamicznie -->
+    </main>
 
     <footer class="footer">
       <span id="footer-fw">OpenWrt</span> ·

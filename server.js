@@ -7,6 +7,7 @@ const url = require('url');
 
 const store = require('./lib/store');
 const status = require('./lib/status');
+const tools = require('./lib/tools');
 const { FIRMWARE } = require('./lib/defaults');
 
 const PORT = process.env.PORT || 3000;
@@ -195,6 +196,27 @@ async function handleApi(req, res, pathname, query) {
   }
   if (seg[0] === 'changes' && method === 'GET') {
     return sendJson(res, 200, { changes: store.getState().changes, count: store.changeCount() });
+  }
+
+  // --- diagnostyka (ping / traceroute / nslookup) ---
+  if (seg[0] === 'diag' && method === 'POST') {
+    const body = await readBody(req);
+    const out = tools.diag(body.tool, (body.target || '').trim(), body.count);
+    return sendJson(res, 200, { ok: true, tool: body.tool, target: body.target, output: out });
+  }
+
+  // --- logi systemowe ---
+  if (seg[0] === 'log' && method === 'GET') {
+    if (seg[1] === 'kernel') return sendJson(res, 200, { type: 'kernel', output: tools.dmesg() });
+    return sendJson(res, 200, { type: 'system', output: tools.syslog() });
+  }
+
+  // --- ponowne uruchomienie (reboot) ---
+  if (seg[0] === 'reboot' && method === 'POST') {
+    store.reboot();
+    sessions.clear(); // po restarcie trzeba zalogować się ponownie (jak w LuCI)
+    const cookie = 'sysauth=; Path=/; HttpOnly; Max-Age=0';
+    return sendJson(res, 200, { ok: true, message: 'Urządzenie jest uruchamiane ponownie...' }, { 'Set-Cookie': cookie });
   }
 
   // --- reset fabryczny ---
