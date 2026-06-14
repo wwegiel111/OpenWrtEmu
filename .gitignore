@@ -1,0 +1,12 @@
+# Zależności (projekt ich nie ma, ale na wszelki wypadek)
+node_modules/
+
+# Stan runtime emulatora — tworzony automatycznie przy starcie.
+# Pomijamy, aby każdy deploy startował od stanu fabrycznego.
+data/
+
+# Pliki narzędziowe / lokalne
+.claude/
+.DS_Store
+*.log
+npm-debug.log*

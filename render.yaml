@@ -1,0 +1,16 @@
+# Render Blueprint — automatyczna konfiguracja usługi.
+# W panelu Render: New + → Blueprint → wskaż repozytorium z tym plikiem.
+services:
+  - type: web
+    name: openwrt-emu-archer-c6
+    runtime: node
+    plan: free                # darmowy plan (usypia po ~15 min bezczynności)
+    region: frankfurt         # najbliżej Polski; można zmienić
+    buildCommand: npm install # brak zależności — wykona się błyskawicznie
+    startCommand: node server.js
+    healthCheckPath: /
+    autoDeploy: true          # auto-deploy po każdym push do gałęzi
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # PORT jest ustawiany automatycznie przez Render — NIE ustawiaj go ręcznie.

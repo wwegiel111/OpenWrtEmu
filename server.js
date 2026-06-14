@@ -253,7 +253,8 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, pathname);
 });
 
-server.listen(PORT, () => {
+const HOST = process.env.HOST || '0.0.0.0'; // 0.0.0.0 = nasłuch na wszystkich interfejsach (wymagane na Render/hostingach)
+server.listen(PORT, HOST, () => {
   console.log('');
   console.log('  ╔══════════════════════════════════════════════════════════╗');
   console.log('  ║   Emulator OpenWrt / LuCI  —  TP-Link Archer C6           ║');
