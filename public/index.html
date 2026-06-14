@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenWrt - LuCI</title>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/luci.css">
+</head>
+<body>
+  <!-- Ekran logowania -->
+  <div id="login-view" class="login-view hidden">
+    <div class="login-box">
+      <div class="login-logo">
+        <img src="img/openwrt-logo.svg" alt="OpenWrt" height="48">
+      </div>
+      <h2 id="login-host">OpenWrt</h2>
+      <p class="login-sub">Wymagana autoryzacja</p>
+      <p class="login-desc">Wprowadź nazwę użytkownika i hasło.</p>
+      <form id="login-form" autocomplete="off">
+        <div class="cbi-value">
+          <label>Nazwa użytkownika</label>
+          <input type="text" id="login-username" value="root" autocomplete="username">
+        </div>
+        <div class="cbi-value">
+          <label>Hasło</label>
+          <input type="password" id="login-password" autocomplete="current-password" placeholder="">
+        </div>
+        <div id="login-error" class="login-error hidden"></div>
+        <div class="login-actions">
+          <button type="submit" class="btn btn-primary">Zaloguj się</button>
+        </div>
+      </form>
+      <div class="login-hint">
+        Domyślne dane: użytkownik <code>root</code>, hasło puste lub <code>admin</code>.
+      </div>
+    </div>
+    <div class="login-footer">Emulator OpenWrt · TP-Link Archer C6 · wersja szkoleniowa</div>
+  </div>
+
+  <!-- Aplikacja -->
+  <div id="app-view" class="app-view hidden">
+    <header class="header">
+      <div class="header-inner">
+        <a class="brand" href="#/admin/status/overview">
+          <img src="img/openwrt-logo.svg" alt="OpenWrt" height="28">
+        </a>
+        <div class="brand-meta">
+          <span id="hdr-hostname">OpenWrt</span>
+          <span id="hdr-model" class="hdr-model">TP-Link Archer C6</span>
+        </div>
+        <div class="header-spacer"></div>
+        <div id="changes-indicator" class="changes-indicator hidden" title="Niezapisane zmiany">
+          <a href="#/admin/uci/changes">Niezapisane zmiany: <span id="changes-count">0</span></a>
+        </div>
+        <button id="theme-toggle" class="icon-btn" title="Przełącz motyw">◐</button>
+      </div>
+      <nav class="mainmenu" id="mainmenu"></nav>
+    </header>
+
+    <div class="layout">
+      <aside class="submenu" id="submenu"></aside>
+      <main class="content" id="content">
+        <!-- renderowane dynamicznie -->
+      </main>
+    </div>
+
+    <footer class="footer">
+      <span id="footer-fw">OpenWrt</span> ·
+      <a href="#/admin/system/flash">Kopia zapasowa / Reset</a> ·
+      Emulator szkoleniowy LuCI
+    </footer>
+  </div>
+
+  <!-- Powiadomienia -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

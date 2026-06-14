@@ -1,0 +1,15 @@
+{
+  "name": "openwrt-emu",
+  "version": "1.0.0",
+  "description": "Emulator LuCI / OpenWrt dla TP-Link Archer C6 — przygotowanie do egzaminu zawodowego (INF.02 / EE.08). Zero zależności.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT"
+}
